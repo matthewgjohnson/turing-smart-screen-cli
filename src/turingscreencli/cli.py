@@ -2,6 +2,8 @@ import argparse
 import logging
 import sys
 
+import usb.core
+
 from . import operations, transport
 
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -57,9 +59,19 @@ def create_parser() -> argparse.ArgumentParser:
         default=0,
         help="Increase logging verbosity (-vv for debug logging).",
     )
+    parser.add_argument(
+        "-d",
+        "--device",
+        type=str,
+        default=None,
+        help="Device selector: index (0, 1, 2), full serial, or partial serial prefix.",
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
     subparsers.required = True
+
+    # List devices command (no device connection needed)
+    subparsers.add_parser("list-devices", help="List all connected Turing Smart Screen devices")
 
     # Simple commands with no arguments
     subparsers.add_parser("sync", help="Send a sync command to the device")
@@ -186,14 +198,62 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _parse_device_selector(selector_str):
+    """Parse device selector string into int index or string serial."""
+    if selector_str is None:
+        return None
+    # Try to parse as integer index
+    try:
+        return int(selector_str)
+    except ValueError:
+        # Return as string for serial matching
+        return selector_str
+
+
+def _list_devices() -> bool:
+    """List all connected Turing Smart Screen devices."""
+    devices = transport.find_all_usb_devices()
+
+    if not devices:
+        print("No Turing Smart Screen devices found.")
+        return True
+
+    # Print header
+    print(f"{'Index':<6} {'Serial':<18} {'Bus:Addr':<10} {'Product':<10}")
+    print("-" * 50)
+
+    for idx, dev in enumerate(devices):
+        serial = transport.get_device_serial(dev)
+        bus_addr = f"{dev.bus:03d}:{dev.address:03d}"
+        try:
+            product = dev.product or "Unknown"
+        except (usb.core.USBError, ValueError):
+            product = "Unknown"
+        print(f"{idx:<6} {serial:<18} {bus_addr:<10} {product:<10}")
+
+    return True
+
+
 def run(argv=None, *, device_factory=transport.find_usb_device) -> int:
     """Run the CLI with the provided arguments."""
     parser = create_parser()
     args = parser.parse_args(argv)
     configure_logging(args.verbose)
 
+    # Handle list-devices separately (no device connection needed)
+    if args.command == "list-devices":
+        try:
+            _list_devices()
+            return 0
+        except Exception as exc:
+            logger.error("Error listing devices: %s", exc)
+            return 1
+
+    # Parse device selector
+    device_selector = _parse_device_selector(args.device)
+
     try:
-        dev = device_factory()
+        dev = device_factory(device_selector)
     except ValueError as exc:
         logger.error("Error: %s", exc)
         return 1

@@ -50,11 +50,8 @@ def encrypt_command_packet(data: bytearray) -> bytearray:
     return final_packet
 
 
-def find_usb_device():
-    dev = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)
-    if dev is None:
-        raise ValueError("USB device not found")
-
+def _configure_device(dev):
+    """Configure a USB device for communication."""
     try:
         dev.set_configuration()
     except usb.core.USBError as exc:
@@ -68,6 +65,79 @@ def find_usb_device():
             logger.warning("detach_kernel_driver failed: %s", exc)
 
     return dev
+
+
+def get_device_serial(dev) -> str:
+    """Get the serial number for a device, or fallback to bus:address."""
+    try:
+        serial = dev.serial_number
+        if serial:
+            return serial
+    except (usb.core.USBError, ValueError):
+        pass
+    return f"bus{dev.bus:03d}:{dev.address:03d}"
+
+
+def find_all_usb_devices():
+    """Find all connected Turing Smart Screen devices, sorted by serial number."""
+    devices = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, find_all=True)
+    if devices is None:
+        return []
+    device_list = list(devices)
+    # Sort by serial number for stable ordering
+    device_list.sort(key=get_device_serial)
+    return device_list
+
+
+def find_usb_device(device_selector=None):
+    """Find a USB device, optionally by index or serial number.
+
+    Args:
+        device_selector: None for first device, int for index, str for serial match
+
+    Returns:
+        Configured USB device
+
+    Raises:
+        ValueError: If no device found or selector doesn't match
+    """
+    devices = find_all_usb_devices()
+
+    if not devices:
+        raise ValueError("No Turing Smart Screen devices found")
+
+    if device_selector is None:
+        # Default to first device
+        return _configure_device(devices[0])
+
+    if isinstance(device_selector, int):
+        # Select by index
+        if device_selector < 0 or device_selector >= len(devices):
+            raise ValueError(
+                f"Device index {device_selector} out of range (0-{len(devices) - 1})"
+            )
+        return _configure_device(devices[device_selector])
+
+    # Select by serial number (full or partial match)
+    serial_str = str(device_selector)
+    matches = []
+    for dev in devices:
+        dev_serial = get_device_serial(dev)
+        if dev_serial == serial_str:
+            # Exact match
+            return _configure_device(dev)
+        if dev_serial.startswith(serial_str):
+            matches.append(dev)
+
+    if len(matches) == 1:
+        return _configure_device(matches[0])
+    if len(matches) > 1:
+        serials = [get_device_serial(d) for d in matches]
+        raise ValueError(
+            f"Ambiguous serial prefix '{serial_str}' matches: {', '.join(serials)}"
+        )
+
+    raise ValueError(f"No device found matching '{serial_str}'")
 
 
 def read_flush(ep_in, max_attempts: int = 5) -> None:
