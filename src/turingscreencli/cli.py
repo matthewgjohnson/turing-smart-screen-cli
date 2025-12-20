@@ -219,8 +219,8 @@ def _list_devices() -> bool:
         return True
 
     # Print header
-    print(f"{'Index':<6} {'Serial':<18} {'Bus:Addr':<10} {'Product':<10}")
-    print("-" * 50)
+    print(f"{'Index':<6} {'Serial':<18} {'Bus:Addr':<10} {'Product':<10} {'Firmware':<8}")
+    print("-" * 60)
 
     for idx, dev in enumerate(devices):
         serial = transport.get_device_serial(dev)
@@ -229,7 +229,13 @@ def _list_devices() -> bool:
             product = dev.product or "Unknown"
         except (usb.core.USBError, ValueError):
             product = "Unknown"
-        print(f"{idx:<6} {serial:<18} {bus_addr:<10} {product:<10}")
+        # bcdDevice is BCD-encoded version (e.g., 0x0100 = 1.00)
+        try:
+            bcd = dev.bcdDevice
+            firmware = f"{(bcd >> 8) & 0xFF}.{bcd & 0xFF:02d}"
+        except (usb.core.USBError, ValueError, AttributeError):
+            firmware = "Unknown"
+        print(f"{idx:<6} {serial:<18} {bus_addr:<10} {product:<10} {firmware:<8}")
 
     return True
 
