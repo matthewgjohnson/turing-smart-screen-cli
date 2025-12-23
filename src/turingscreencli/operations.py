@@ -82,6 +82,24 @@ def delete_file(dev, filename: str) -> bool:
     return True
 
 
+def _resolve_video_filename(filename: str) -> str:
+    """Resolve video filename to h264 format.
+
+    When users upload video.mp4, it gets stored as video.h264.
+    This function translates .mp4 filenames to .h264 for playback.
+    """
+    path_obj = Path(filename)
+    ext = path_obj.suffix.lower()
+
+    if ext == ".mp4":
+        # Translate .mp4 to .h264 (how it's stored on device)
+        resolved = path_obj.stem + ".h264"
+        logger.info("Translating %s → %s (mp4 files are stored as h264)", filename, resolved)
+        return resolved
+
+    return filename
+
+
 def play_file(dev, filename: str, play_command_func: Optional[Callable] = None) -> bool:
     if play_command_func is None:
         play_command_func = _play_command
@@ -129,7 +147,8 @@ def upload_file(dev, file_path: str) -> bool:
         h264_path = extract_h264_from_mp4(file_path)
         device_path = f"/tmp/sdcard/mmcblk0p1/video/{h264_path.name}"
         local_path = h264_path  # Update local path to .h264
-        logger.info("Uploading MP4 as H264: %s → %s", local_path, device_path)
+        logger.info("Uploading MP4 as H264: %s → %s", file_path, device_path)
+        logger.info("Note: Use '%s' with play-select (or the original mp4 name)", h264_path.name)
     else:
         logger.error("Error: Unsupported file type. Only .png and .mp4 are allowed.")
         return False
@@ -471,7 +490,8 @@ def extract_h264_from_mp4(mp4_path: str) -> Path:
     if not input_path.exists():
         raise FileNotFoundError(f"Input file not found: {input_path}")
 
-    output_path = input_path.with_name(input_path.name + ".h264")
+    # Use clean naming: video.mp4 → video.h264 (not video.mp4.h264)
+    output_path = input_path.with_suffix(".h264")
 
     if output_path.exists():
         logger.info("%s already exists. Skipping extraction.", output_path.name)
@@ -562,7 +582,9 @@ def send_video(dev, video_path, loop: bool = False) -> bool:
 
 
 def play_stored_asset(dev, filename: str) -> bool:
-    path_obj = Path(filename)
+    # Resolve .mp4 to .h264 if needed
+    resolved_filename = _resolve_video_filename(filename)
+    path_obj = Path(resolved_filename)
     ext = path_obj.suffix.lower()
 
     delay_sync(dev)
@@ -570,7 +592,7 @@ def play_stored_asset(dev, filename: str) -> bool:
     send_brightness_command(dev, 32)
 
     if ext == ".h264":
-        play_file(dev, filename)
+        play_file(dev, resolved_filename)
 
     cmd_packet = build_command_packet_header(111)
     write_to_device(dev, encrypt_command_packet(cmd_packet))
@@ -579,11 +601,11 @@ def play_stored_asset(dev, filename: str) -> bool:
     clear_image(dev)
 
     if ext == ".h264":
-        return play_file2(dev, filename)
+        return play_file2(dev, resolved_filename)
     if ext == ".png":
-        return play_file3(dev, filename)
+        return play_file3(dev, resolved_filename)
 
-    logger.error("Error: Unsupported file type. Only .png and .h264 are allowed.")
+    logger.error("Error: Unsupported file type. Only .png, .mp4, and .h264 are allowed.")
     return False
 
 
