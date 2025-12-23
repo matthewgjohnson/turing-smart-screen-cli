@@ -47,9 +47,15 @@ def create_parser() -> argparse.ArgumentParser:
         epilog=(
             "Examples:\n"
             "  turing-screen send-image --path sample.png\n"
+            "  turing-screen send-video --path video.mp4 --loop\n"
             "  turing-screen brightness --value 80\n"
             "  turing-screen save --brightness 100 --rotation 0\n"
-            "  turing-screen list-storage --type image"
+            "\n"
+            "Video requirements:\n"
+            "  Resolution: 480x1920 (portrait)\n"
+            "  Codec: H.264 baseline profile, 25fps, no B-frames\n"
+            "  Convert: ffmpeg -i in.mp4 -vf transpose=1 -c:v libx264 \\\n"
+            "           -profile:v baseline -r 25 -bf 0 -an out.mp4"
         ),
     )
     parser.add_argument(
@@ -161,12 +167,12 @@ def create_parser() -> argparse.ArgumentParser:
         help="Path to PNG image (ideally 480x1920)",
     )
 
-    parser_video = subparsers.add_parser("send-video", help="Play a video on the screen")
+    parser_video = subparsers.add_parser("send-video", help="Stream video to the screen")
     parser_video.add_argument(
         "--path",
         type=str,
         required=True,
-        help="Path to MP4 video file",
+        help="Path to MP4 video (480x1920, h264 baseline, 25fps)",
     )
     parser_video.add_argument(
         "--loop",
@@ -174,29 +180,11 @@ def create_parser() -> argparse.ArgumentParser:
         help="Loop the video playback until interrupted",
     )
 
-    upload_parser = subparsers.add_parser("upload", help="Upload PNG or MP4 file to device storage")
-    upload_parser.add_argument(
-        "--path",
-        type=str,
-        required=True,
-        help="Path to .png or .mp4 file",
-    )
-
-    delete_parser = subparsers.add_parser("delete", help="Delete a file from device storage")
-    delete_parser.add_argument(
-        "--filename",
-        type=str,
-        required=True,
-        help=".png or .h264 filename to delete",
-    )
-
-    play_parser = subparsers.add_parser("play-select", help="Play a stored file from device storage")
-    play_parser.add_argument(
-        "--filename",
-        type=str,
-        required=True,
-        help=".png, .mp4, or .h264 filename to play (mp4 files are stored as h264)",
-    )
+    # NOTE: The following commands are disabled due to reliability issues on tested hardware.
+    # The underlying code is preserved in operations.py for future investigation.
+    # - upload: USB timeouts during file write operations
+    # - delete: Depends on working storage operations
+    # - play-select: Files upload but playback doesn't start
 
     return parser
 
@@ -336,18 +324,9 @@ def _dispatch_command(dev, args) -> bool:
     if command == "send-video":
         operations.delay_sync(dev)
         return operations.send_video(dev, args.path, loop=args.loop)
-    if command == "upload":
-        operations.delay_sync(dev)
-        operations.send_refresh_storage_command(dev)
-        return operations.upload_file(dev, args.path)
-    if command == "delete":
-        operations.delay_sync(dev)
-        return operations.delete_file(dev, args.filename)
     if command == "stop-play":
         operations.delay_sync(dev)
         return operations.stop_play(dev)
-    if command == "play-select":
-        return operations.play_stored_asset(dev, args.filename)
 
     raise ValueError(f"Unsupported command: {command}")
 
