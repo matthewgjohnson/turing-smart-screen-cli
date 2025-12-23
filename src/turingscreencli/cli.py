@@ -192,7 +192,7 @@ def create_parser() -> argparse.ArgumentParser:
         "--filename",
         type=str,
         required=True,
-        help=".png or .h264 filename to play",
+        help=".png, .mp4, or .h264 filename to play (mp4 files are stored as h264)",
     )
 
     return parser
@@ -240,6 +240,12 @@ def _list_devices() -> bool:
     return True
 
 
+def _get_device_info(dev) -> str:
+    """Get a short description of the device for logging."""
+    serial = transport.get_device_serial(dev)
+    return f"device serial={serial} (bus={dev.bus:03d}, addr={dev.address:03d})"
+
+
 def run(argv=None, *, device_factory=transport.find_usb_device) -> int:
     """Run the CLI with the provided arguments."""
     parser = create_parser()
@@ -269,6 +275,10 @@ def run(argv=None, *, device_factory=transport.find_usb_device) -> int:
     except Exception as exc:
         logger.error("Unexpected error: %s", exc)
         return 1
+
+    # Log which device was selected (always show this for multi-device setups)
+    device_info = _get_device_info(dev)
+    logger.info("Using %s", device_info)
 
     try:
         success = _dispatch_command(dev, args)
