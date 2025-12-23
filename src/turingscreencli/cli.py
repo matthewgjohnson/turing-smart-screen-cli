@@ -91,7 +91,10 @@ def create_parser() -> argparse.ArgumentParser:
         help="Brightness value (0–102)",
     )
 
-    save_parser = subparsers.add_parser("save", help="Persist device settings")
+    save_parser = subparsers.add_parser(
+        "save",
+        help="Persist device settings (rotation requires restart to take effect)",
+    )
     save_parser.add_argument(
         "--brightness",
         type=int,
@@ -122,7 +125,7 @@ def create_parser() -> argparse.ArgumentParser:
         default=0,
         choices=[0, 2],
         metavar="[0|2]",
-        help="0 = 0°, 2 = 180° (default: 0)",
+        help="0 = 0°, 2 = 180° (default: 0). Requires restart to take effect.",
     )
     save_parser.add_argument(
         "--sleep",
