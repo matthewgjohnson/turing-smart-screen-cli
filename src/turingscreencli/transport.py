@@ -78,7 +78,7 @@ def get_device_serial(dev) -> str:
     return f"bus{dev.bus:03d}:{dev.address:03d}"
 
 
-def find_all_usb_devices():
+def find_all_usb_devices() -> list:
     """Find all connected Turing Smart Screen devices, sorted by serial number."""
     devices = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID, find_all=True)
     if devices is None:
