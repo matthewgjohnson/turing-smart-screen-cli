@@ -5,6 +5,13 @@ def _noop(*_args, **_kwargs):
     return None
 
 
+class MockDevice:
+    """Mock USB device with required attributes."""
+    serial_number = "test123"
+    bus = 1
+    address = 1
+
+
 def test_create_parser_includes_commands():
     parser = cli.create_parser()
 
@@ -27,7 +34,7 @@ def test_run_sync_success(monkeypatch):
 
     monkeypatch.setattr(cli.operations, "send_sync_command", fake_send_sync)
 
-    rc = cli.run(["sync"], device_factory=lambda _: object())
+    rc = cli.run(["sync"], device_factory=lambda _: MockDevice())
 
     assert rc == 0
     assert "dev" in captured
@@ -43,21 +50,21 @@ def test_run_device_missing(monkeypatch):
     assert rc == 1
 
 
-def test_run_upload_failure(monkeypatch):
+def test_run_brightness_success(monkeypatch):
     monkeypatch.setattr(cli, "configure_logging", _noop)
     monkeypatch.setattr(cli.operations, "delay_sync", lambda dev: None)
-    monkeypatch.setattr(cli.operations, "send_refresh_storage_command", lambda dev: None)
-    monkeypatch.setattr(cli.operations, "upload_file", lambda dev, path: False)
+    monkeypatch.setattr(cli.operations, "send_brightness_command", lambda dev, val: b"ok")
 
-    rc = cli.run(["upload", "--path", "demo.png"], device_factory=lambda _: object())
+    rc = cli.run(["brightness", "--value", "50"], device_factory=lambda _: MockDevice())
 
-    assert rc == 1
+    assert rc == 0
 
 
-def test_run_play_select_invalid_extension(monkeypatch):
+def test_run_send_image_failure(monkeypatch):
     monkeypatch.setattr(cli, "configure_logging", _noop)
-    monkeypatch.setattr(cli.operations, "play_stored_asset", lambda dev, name: False)
+    monkeypatch.setattr(cli.operations, "delay_sync", lambda dev: None)
+    monkeypatch.setattr(cli.operations, "send_image", lambda dev, path: False)
 
-    rc = cli.run(["play-select", "--filename", "invalid.txt"], device_factory=lambda _: object())
+    rc = cli.run(["send-image", "--path", "missing.png"], device_factory=lambda _: MockDevice())
 
     assert rc == 1

@@ -1,10 +1,16 @@
 import argparse
 import logging
 import sys
+from importlib.metadata import version, PackageNotFoundError
 
 import usb.core
 
 from . import operations, transport
+
+try:
+    __version__ = version("turingscreencli")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
 
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 _DATE_FORMAT = "%H:%M:%S"
@@ -57,6 +63,11 @@ def create_parser() -> argparse.ArgumentParser:
             "  Convert: ffmpeg -i in.mp4 -vf transpose=1 -c:v libx264 \\\n"
             "           -profile:v baseline -r 25 -bf 0 -an out.mp4"
         ),
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
     parser.add_argument(
         "-v",
