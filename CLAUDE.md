@@ -20,6 +20,11 @@ Three Turing 8.8" Smart Screens connect via USB using revision C protocol (LcdCo
 
 Native resolution is 480x1920 (portrait). Orientation is controlled by theme DISPLAY_ORIENTATION (portrait/landscape) and config DISPLAY_REVERSE (180-degree flip).
 
+## Git Configuration
+
+- **Committer**: Matthew G. Johnson <matthewgjohnson@gmail.com>
+- **GitHub**: matthewgjohnson
+
 ## Shiro Remote Access
 
 ```bash
@@ -27,7 +32,7 @@ Native resolution is 480x1920 (portrait). Orientation is controlled by theme DIS
 ssh 192.168.128.66
 
 # Deploy updates on Shiro
-ssh 192.168.128.66 "cd ~/turing-smart-screen-cli && git pull origin main && ~/.local/bin/uv tool install --reinstall ~/turing-smart-screen-cli"
+ssh 192.168.128.66 "cd ~/turing-smart-screen-cli && git pull origin main && uv tool install --reinstall ."
 ```
 
 ## Development Commands
